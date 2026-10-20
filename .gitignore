@@ -1,0 +1,49 @@
+
+# Gradle files
+.gradle/
+build/
+**/build/
+
+# Local Android SDK configuration
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Generated Android files
+captures/
+.externalNativeBuild/
+.cxx/
+*.class
+*.dex
+
+# Compiled Android applications
+*.apk
+*.aab
+*.ap_
+output-metadata.json
+
+# Log files
+*.log
+
+# Signing keys - keep private
+*.jks
+*.keystore
+keystore.properties
+
+# Firebase configuration
+# Uncomment the next line if this file should not be
+# included in your GitHub repository
+# google-services.json
+
+# Android profiling files
+*.hprof
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
