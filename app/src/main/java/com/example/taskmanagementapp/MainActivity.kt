@@ -47,15 +47,16 @@ fun TaskScreen() {
                 .padding(24.dp)
         ) {
             Text(
-                text = "My Tasks",
-                fontSize = 30.sp,
+                text = "Task Management System",
+                fontSize = 12.sp,
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Stay organised and get things done.",
+                text = "My Tasks",
+                fontSize = 30.sp,
                 style = MaterialTheme.typography.bodyMedium
             )
 
