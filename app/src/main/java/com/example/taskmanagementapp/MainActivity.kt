@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -28,7 +29,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,6 +81,7 @@ fun TaskScreen(loadFromServer: Boolean = true) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var dropdownExpanded by remember { mutableStateOf(false) }
+    var userFieldWidth by remember { mutableIntStateOf(0) }
 
     var isLoading by remember { mutableStateOf(loadFromServer) }
     var isSaving by remember { mutableStateOf(false) }
@@ -178,7 +182,11 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                     label = { Text("Select a user") },
                     placeholder = { Text("Choose a user") },
                     trailingIcon = { Text("▼") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { size ->
+                            userFieldWidth = size.width
+                        }
                 )
 
                 // Transparent layer that receives taps.
@@ -193,7 +201,11 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                 DropdownMenu(
                     expanded = dropdownExpanded,
                     onDismissRequest = { dropdownExpanded = false },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.width(
+                        with(LocalDensity.current) {
+                            userFieldWidth.toDp()
+                        }
+                    )
                 ) {
                     users.forEach { user ->
                         DropdownMenuItem(
