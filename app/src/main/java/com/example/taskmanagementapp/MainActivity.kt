@@ -1,4 +1,3 @@
-
 package com.example.taskmanagementapp
 
 import android.os.Bundle
@@ -28,7 +27,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -311,36 +312,65 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                 isLoading -> Text("Loading tasks and users...")
                 tasks.isEmpty() -> Text("No tasks yet.")
                 else -> tasks.forEach { task ->
-                    TaskItem(task)
+                    TaskItem(
+                        task = task,
+                        onStatusChange = { newStatus ->
+                            // We'll connect this to the server next.
+                        }
+                    )
                 }
             }
         }
     }
 }
 
-@Composable
-fun TaskItem(task: Task) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Text(
-            text = task.status
-        )
 
-        Column(modifier = Modifier.padding(start = 8.dp)) {
+
+@Composable
+fun TaskItem(
+    task: Task,
+    onStatusChange: (String) -> Unit
+) {
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = task.title,
                 style = MaterialTheme.typography.titleMedium
             )
 
-            if (task.description.isNotBlank()) {
-                Text(
-                    text = task.description,
-                    style = MaterialTheme.typography.bodySmall
-                )
+            Text(text = task.description)
+        }
+
+        Box {
+            TextButton(
+                onClick = { dropdownExpanded = true }
+            ) {
+                Text(task.status)
+                Text(" ▼")
+            }
+
+            DropdownMenu(
+                expanded = dropdownExpanded,
+                onDismissRequest = { dropdownExpanded = false }
+            ) {
+                listOf("TODO", "IN_PROGRESS", "DONE").forEach { status ->
+                    DropdownMenuItem(
+                        text = { Text(status) },
+                        onClick = {
+                            dropdownExpanded = false
+
+                            if (status != task.status) {
+                                onStatusChange(status)
+                            }
+                        }
+                    )
+                }
             }
         }
     }
