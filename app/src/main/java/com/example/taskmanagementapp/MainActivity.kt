@@ -5,7 +5,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,34 +15,45 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.taskmanagementapp.ui.theme.TaskManagementAppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+
+private const val BASE_URL = "http://10.0.2.2:8080"
 
 data class Task(
     val id: Int,
     val title: String,
     val description: String,
     val status: String
+)
+
+data class AppUser(
+    val id: Int,
+    val username: String,
+    val email: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -59,24 +72,41 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TaskScreen(loadFromServer: Boolean = true) {
     var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var users by remember { mutableStateOf<List<AppUser>>(emptyList()) }
+    var selectedUser by remember { mutableStateOf<AppUser?>(null) }
+
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
     var isLoading by remember { mutableStateOf(loadFromServer) }
+    var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
+
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(loadFromServer) {
         if (loadFromServer) {
             isLoading = true
-            errorMessage = null
 
             try {
                 tasks = withContext(Dispatchers.IO) {
                     fetchTasks()
                 }
             } catch (e: Exception) {
-                errorMessage =
-                    e.message ?: "Could not connect to the server."
-            } finally {
-                isLoading = false
+                errorMessage = "Could not load tasks: ${e.message}"
             }
+
+            try {
+                users = withContext(Dispatchers.IO) {
+                    fetchUsers()
+                }
+            } catch (e: Exception) {
+                errorMessage = "Could not load users: ${e.message}"
+            }
+
+            isLoading = false
         }
     }
 
@@ -85,6 +115,7 @@ fun TaskScreen(loadFromServer: Boolean = true) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp)
         ) {
             Text(
@@ -95,35 +126,184 @@ fun TaskScreen(loadFromServer: Boolean = true) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "Stay organised and get things done.",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Text("Stay organised and get things done.")
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            when {
-                isLoading -> {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Loading tasks...")
-                }
+            Text(
+                text = "Create a new task",
+                style = MaterialTheme.typography.titleLarge
+            )
 
-                errorMessage != null -> {
-                    Text(
-                        text = "Could not load tasks: $errorMessage",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+            Spacer(modifier = Modifier.height(12.dp))
 
-                tasks.isEmpty() -> {
-                    Text("No tasks yet.")
-                }
+            OutlinedTextField(
+                value = title,
+                onValueChange = {
+                    if (it.length <= 200) title = it
+                },
+                label = { Text("Task title") },
+                supportingText = { Text("${title.length}/200 characters") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                else -> {
-                    tasks.forEach { task ->
-                        TaskItem(task)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Task description") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Assign to user",
+                style = MaterialTheme.typography.labelLarge
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = selectedUser?.username ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
+                    label = { Text("Select a user") },
+                    placeholder = { Text("Choose a user") },
+                    trailingIcon = { Text("▼") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Transparent layer that receives taps.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(enabled = users.isNotEmpty()) {
+                            dropdownExpanded = true
+                        }
+                )
+
+                DropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    users.forEach { user ->
+                        DropdownMenuItem(
+                            text = { Text(user.username) },
+                            onClick = {
+                                selectedUser = user
+                                dropdownExpanded = false
+                            }
+                        )
                     }
+                }
+            }
+
+            if (users.isEmpty() && !isLoading) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "No users available. Check that users exist in the database.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    when {
+                        title.isBlank() ->
+                            errorMessage = "Please enter a task title."
+
+                        description.isBlank() ->
+                            errorMessage = "Please enter a task description."
+
+                        selectedUser == null ->
+                            errorMessage = "Please select a user."
+
+                        else -> {
+                            scope.launch {
+                                isSaving = true
+                                errorMessage = null
+                                successMessage = null
+
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        createTask(
+                                            title = title.trim(),
+                                            description = description.trim(),
+                                            userId = selectedUser!!.id
+                                        )
+                                    }
+
+                                    tasks = withContext(Dispatchers.IO) {
+                                        fetchTasks()
+                                    }
+
+                                    title = ""
+                                    description = ""
+                                    selectedUser = null
+                                    successMessage = "Task created successfully!"
+                                } catch (e: Exception) {
+                                    errorMessage =
+                                        "Could not create task: ${e.message}"
+                                } finally {
+                                    isSaving = false
+                                }
+                            }
+                        }
+                    }
+                },
+                enabled = !isSaving && !isLoading && users.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isSaving) "Creating..." else "Create Task")
+            }
+
+            if (isSaving) {
+                Spacer(modifier = Modifier.height(8.dp))
+                CircularProgressIndicator()
+            }
+
+            errorMessage?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            successMessage?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Your tasks",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            when {
+                isLoading -> Text("Loading tasks and users...")
+                tasks.isEmpty() -> Text("No tasks yet.")
+                else -> tasks.forEach { task ->
+                    TaskItem(task)
                 }
             }
         }
@@ -165,19 +345,16 @@ fun TaskItem(task: Task) {
 }
 
 private fun fetchTasks(): List<Task> {
-    val connection = URL(
-        "http://10.0.2.2:8080/api/tasks"
-    ).openConnection() as HttpURLConnection
+    val connection = URL("$BASE_URL/api/tasks")
+        .openConnection() as HttpURLConnection
 
     try {
         connection.requestMethod = "GET"
         connection.connectTimeout = 5000
         connection.readTimeout = 5000
 
-        val responseCode = connection.responseCode
-
-        if (responseCode !in 200..299) {
-            throw Exception("Server returned HTTP $responseCode")
+        if (connection.responseCode !in 200..299) {
+            throw Exception("Server returned HTTP ${connection.responseCode}")
         }
 
         val response = connection.inputStream
@@ -185,22 +362,95 @@ private fun fetchTasks(): List<Task> {
             .use { it.readText() }
 
         val jsonArray = JSONArray(response)
-        val result = mutableListOf<Task>()
 
-        for (i in 0 until jsonArray.length()) {
+        return (0 until jsonArray.length()).map { i ->
             val item = jsonArray.getJSONObject(i)
 
-            result.add(
-                Task(
-                    id = item.getInt("id"),
-                    title = item.getString("title"),
-                    description = item.optString("description", ""),
-                    status = item.optString("status", "TODO")
-                )
+            Task(
+                id = item.getInt("id"),
+                title = item.getString("title"),
+                description = item.optString("description", ""),
+                status = item.optString("status", "TODO")
             )
         }
+    } finally {
+        connection.disconnect()
+    }
+}
 
-        return result
+private fun fetchUsers(): List<AppUser> {
+    val connection = URL("$BASE_URL/api/users")
+        .openConnection() as HttpURLConnection
+
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+
+        if (connection.responseCode !in 200..299) {
+            throw Exception("Server returned HTTP ${connection.responseCode}")
+        }
+
+        val response = connection.inputStream
+            .bufferedReader(Charsets.UTF_8)
+            .use { it.readText() }
+
+        val jsonArray = JSONArray(response)
+
+        return (0 until jsonArray.length()).map { i ->
+            val item = jsonArray.getJSONObject(i)
+
+            AppUser(
+                id = item.getInt("id"),
+                username = item.getString("username"),
+                email = item.getString("email")
+            )
+        }
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun createTask(
+    title: String,
+    description: String,
+    userId: Int
+) {
+    val body = JSONObject().apply {
+        put("title", title)
+        put("description", description)
+        put("user_id", userId)
+    }
+
+    val connection = URL("$BASE_URL/api/tasks/create")
+        .openConnection() as HttpURLConnection
+
+    try {
+        connection.requestMethod = "POST"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        connection.doOutput = true
+        connection.setRequestProperty(
+            "Content-Type",
+            "application/json; charset=UTF-8"
+        )
+
+        connection.outputStream.bufferedWriter(Charsets.UTF_8).use {
+            it.write(body.toString())
+        }
+
+        val responseCode = connection.responseCode
+
+        if (responseCode !in 200..299) {
+            val errorBody = connection.errorStream
+                ?.bufferedReader(Charsets.UTF_8)
+                ?.use { it.readText() }
+
+            throw Exception(
+                "Server returned HTTP $responseCode" +
+                        (errorBody?.let { ": $it" } ?: "")
+            )
+        }
     } finally {
         connection.disconnect()
     }
