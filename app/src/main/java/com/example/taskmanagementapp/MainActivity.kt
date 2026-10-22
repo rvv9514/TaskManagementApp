@@ -123,14 +123,10 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                 .padding(24.dp)
         ) {
             Text(
-                text = "My Tasks",
-                fontSize = 30.sp,
+                text = "Task Management System",
+                fontSize = 14.sp,
                 style = MaterialTheme.typography.headlineMedium
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text("Stay organised and get things done.")
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -305,7 +301,7 @@ fun TaskScreen(loadFromServer: Boolean = true) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Your tasks",
+                text = "Tasks",
                 style = MaterialTheme.typography.titleLarge
             )
 
@@ -330,9 +326,8 @@ fun TaskItem(task: Task) {
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.Start
     ) {
-        Checkbox(
-            checked = task.status == "DONE",
-            onCheckedChange = {}
+        Text(
+            text = task.status
         )
 
         Column(modifier = Modifier.padding(start = 8.dp)) {
@@ -347,11 +342,6 @@ fun TaskItem(task: Task) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-
-            Text(
-                text = "Status: ${task.status}",
-                style = MaterialTheme.typography.bodySmall
-            )
         }
     }
 }
