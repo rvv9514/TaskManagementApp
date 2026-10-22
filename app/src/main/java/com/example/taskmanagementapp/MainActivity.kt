@@ -317,7 +317,22 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                     TaskItem(
                         task = task,
                         onStatusChange = { newStatus ->
-                            // We'll connect this to the server next.
+                            scope.launch {
+                                val success = updateTaskStatus(task, newStatus)
+
+                                if (success) {
+                                    try {
+                                        tasks = fetchTasks()
+                                        errorMessage = ""
+                                    } catch (e: Exception) {
+                                        errorMessage =
+                                            "Refresh failed: ${e.javaClass.simpleName} - ${e.message}"
+                                        e.printStackTrace()
+                                    }
+                                } else {
+                                    errorMessage = "Could not update task status. Please try again."
+                                }
+                            }
                         }
                     )
                 }
@@ -325,7 +340,6 @@ fun TaskScreen(loadFromServer: Boolean = true) {
         }
     }
 }
-
 
 
 @Composable
@@ -385,39 +399,44 @@ fun TaskItem(
     }
 }
 
-private fun fetchTasks(): List<Task> {
-    val connection = URL("$BASE_URL/api/tasks")
-        .openConnection() as HttpURLConnection
 
-    try {
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
+private suspend fun fetchTasks(): List<Task> =
+    withContext(Dispatchers.IO) {
+        val connection = URL("$BASE_URL/api/tasks")
+            .openConnection() as HttpURLConnection
 
-        if (connection.responseCode !in 200..299) {
-            throw Exception("Server returned HTTP ${connection.responseCode}")
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+
+            if (connection.responseCode !in 200..299) {
+                throw Exception(
+                    "Server returned HTTP ${connection.responseCode}"
+                )
+            }
+
+            val response = connection.inputStream
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
+
+            val jsonArray = JSONArray(response)
+
+            (0 until jsonArray.length()).map { i ->
+                val item = jsonArray.getJSONObject(i)
+
+                Task(
+                    id = item.getInt("id"),
+                    title = item.getString("title"),
+                    description = item.optString("description", ""),
+                    status = item.optString("status", "TODO")
+                )
+            }
+        } finally {
+            connection.disconnect()
         }
-
-        val response = connection.inputStream
-            .bufferedReader(Charsets.UTF_8)
-            .use { it.readText() }
-
-        val jsonArray = JSONArray(response)
-
-        return (0 until jsonArray.length()).map { i ->
-            val item = jsonArray.getJSONObject(i)
-
-            Task(
-                id = item.getInt("id"),
-                title = item.getString("title"),
-                description = item.optString("description", ""),
-                status = item.optString("status", "TODO")
-            )
-        }
-    } finally {
-        connection.disconnect()
     }
-}
+
 
 private fun fetchUsers(): List<AppUser> {
     val connection = URL("$BASE_URL/api/users")
@@ -449,6 +468,42 @@ private fun fetchUsers(): List<AppUser> {
         }
     } finally {
         connection.disconnect()
+    }
+}
+
+private suspend fun updateTaskStatus(
+    task: Task,
+    newStatus: String
+): Boolean = withContext(Dispatchers.IO) {
+    var connection: HttpURLConnection? = null
+
+    try {
+        val url = URL("$BASE_URL/api/tasks/update")
+        connection = url.openConnection() as HttpURLConnection
+
+        connection.requestMethod = "PUT"
+        connection.setRequestProperty(
+            "Content-Type",
+            "application/json"
+        )
+        connection.doOutput = true
+
+        val json = JSONObject().apply {
+            put("id", task.id)
+            put("title", task.title)
+            put("description", task.description)
+            put("status", newStatus)
+        }
+
+        connection.outputStream.use { output ->
+            output.write(json.toString().toByteArray(Charsets.UTF_8))
+        }
+
+        connection.responseCode in 200..299
+    } catch (e: Exception) {
+        false
+    } finally {
+        connection?.disconnect()
     }
 }
 
