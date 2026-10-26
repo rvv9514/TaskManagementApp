@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.protobuf") version "0.10.0"
 }
 
 android {
@@ -36,7 +37,44 @@ android {
     }
 }
 
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.25.5"
+    }
+
+    plugins {
+        create("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.68.1"
+        }
+    }
+
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") {
+                }
+            }
+
+            task.plugins {
+                create("grpc")
+            }
+        }
+    }
+}
+
 dependencies {
+    // gRPC client for Android
+    implementation("io.grpc:grpc-okhttp:1.68.1")
+    implementation("io.grpc:grpc-protobuf:1.68.1")
+    implementation("io.grpc:grpc-stub:1.68.1")
+
+    // Protocol Buffers
+    implementation("com.google.protobuf:protobuf-java:3.25.5")
+
+    // Annotation required by generated gRPC Java code
+    implementation("javax.annotation:javax.annotation-api:1.3.2")
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

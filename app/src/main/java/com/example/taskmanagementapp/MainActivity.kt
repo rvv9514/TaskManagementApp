@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,6 +45,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import io.grpc.ManagedChannelBuilder
+import com.comp713.grpc.TaskEventServiceGrpc
+import com.comp713.grpc.TaskStatusChangeRequest
 
 private const val BASE_URL = "http://10.0.2.2:8080"
 
@@ -53,7 +55,8 @@ data class Task(
     val id: Int,
     val title: String,
     val description: String,
-    val status: String
+    val status: String,
+    val userId: Int
 )
 
 data class AppUser(
@@ -316,14 +319,23 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                 else -> tasks.forEach { task ->
                     TaskItem(
                         task = task,
+
                         onStatusChange = { newStatus ->
                             scope.launch {
                                 val success = updateTaskStatus(task, newStatus)
 
                                 if (success) {
+                                    println("About to send gRPC event for task ID: ${task.id}")
+                                    val eventLogged = recordTaskStatusChange(task, newStatus)
+
                                     try {
                                         tasks = fetchTasks()
-                                        errorMessage = ""
+
+                                        errorMessage = if (eventLogged) {
+                                            ""
+                                        } else {
+                                            "Task updated, but recording the gRPC event failed."
+                                        }
                                     } catch (e: Exception) {
                                         errorMessage =
                                             "Refresh failed: ${e.javaClass.simpleName} - ${e.message}"
@@ -429,7 +441,8 @@ private suspend fun fetchTasks(): List<Task> =
                     id = item.getInt("id"),
                     title = item.getString("title"),
                     description = item.optString("description", ""),
-                    status = item.optString("status", "TODO")
+                    status = item.optString("status", "TODO"),
+                    userId = item.getInt("user_id")
                 )
             }
         } finally {
@@ -504,6 +517,44 @@ private suspend fun updateTaskStatus(
         false
     } finally {
         connection?.disconnect()
+    }
+}
+
+private suspend fun recordTaskStatusChange(
+    task: Task,
+    newStatus: String
+): Boolean = withContext(Dispatchers.IO) {
+    var channel: io.grpc.ManagedChannel? = null
+
+    try {
+        channel = ManagedChannelBuilder
+            .forAddress("10.0.2.2", 9090)
+            .usePlaintext()
+            .build()
+
+        val request = TaskStatusChangeRequest.newBuilder()
+            .setTaskId(task.id)
+            .setTaskTitle(task.title)
+            .setOldStatus(task.status)
+            .setNewStatus(newStatus)
+            .setUserId(task.userId)
+            .build()
+
+        val requestId = java.util.UUID.randomUUID().toString()
+        println("Sending gRPC request: $requestId, task ID: ${task.id}")
+
+        val response = TaskEventServiceGrpc
+            .newBlockingStub(channel)
+            .recordTaskStatusChange(request)
+
+        println("gRPC response received for request: $requestId")
+
+        response.success
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
+    } finally {
+        channel?.shutdownNow()
     }
 }
 
