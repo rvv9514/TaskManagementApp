@@ -345,6 +345,22 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                                     errorMessage = "Could not update task status. Please try again."
                                 }
                             }
+                        },
+                        onDelete = {
+                            scope.launch {
+                                val success = deleteTask(task.id)
+
+                                if (success) {
+                                    try {
+                                        tasks = fetchTasks()
+                                        errorMessage = ""
+                                    } catch (e: Exception) {
+                                        errorMessage = "Task deleted, but refreshing the task list failed."
+                                    }
+                                } else {
+                                    errorMessage = "Could not delete task. Please try again."
+                                }
+                            }
                         }
                     )
                 }
@@ -357,7 +373,8 @@ fun TaskScreen(loadFromServer: Boolean = true) {
 @Composable
 fun TaskItem(
     task: Task,
-    onStatusChange: (String) -> Unit
+    onStatusChange: (String) -> Unit,
+    onDelete: () -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
 
@@ -407,6 +424,12 @@ fun TaskItem(
                     )
                 }
             }
+        }
+
+        Button(
+            onClick = { onDelete() }
+        ) {
+            Text("Delete")
         }
     }
 }
