@@ -520,6 +520,36 @@ private suspend fun updateTaskStatus(
     }
 }
 
+private suspend fun deleteTask(taskId: Int): Boolean =
+    withContext(Dispatchers.IO) {
+        try {
+            val url = URL("http://10.0.2.2:8080/api/tasks/delete")
+            val connection = url.openConnection() as HttpURLConnection
+
+            connection.requestMethod = "DELETE"
+            connection.setRequestProperty(
+                "Content-Type",
+                "application/json"
+            )
+            connection.doOutput = true
+
+            val json = JSONObject().put("id", taskId)
+
+            connection.outputStream.use { output ->
+                output.write(json.toString().toByteArray(Charsets.UTF_8))
+            }
+
+            val success = connection.responseCode in 200..299
+
+            connection.disconnect()
+
+            success
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
 private suspend fun recordTaskStatusChange(
     task: Task,
     newStatus: String
