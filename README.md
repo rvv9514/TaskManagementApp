@@ -10,6 +10,8 @@ This is an Android application for managing tasks. Users can view tasks, create 
 - Create tasks with a title, description, and assigned user.
 - Select a user from the available users.
 - Update task statuses.
+- Delete existing tasks.
+- Create new user using username and email (can be fake).
 - Store task information in a MySQL database.
 - Retrieve user and task data through HTTP API endpoints.
 - Display errors messages.
@@ -31,31 +33,13 @@ This is an Android application for managing tasks. Users can view tasks, create 
   - JDK 17
   - Git
 
-## Configuration
-
-### Backend configuration
-
-The Java server listens on port `8080` and connects to the MySQL database.
-
-Please use environment variables when using your database credentials
-
-### Android configuration
-
-The Android application uses the following base URL during local emulator development:
-
-http://10.0.2.2:8080
-
-The address `10.0.2.2` allows the Android emulator to reach the backend running on the host computer.
-
-The application requires Internet permission and currently permits HTTP traffic for local development. Production deployments should use HTTPS and an appropriate network security configuration.
-
 ## Setup and Installation
 
 ### Prerequisites
 
 Before running this application, install or configure the following:
 - Android Studio
-- An Android emulator or compatible Android device
+- An Android emulator or compatible Android device (in Android Studio)
 - CSS
 - HTML
 - Java 17
@@ -67,20 +51,50 @@ Before running this application, install or configure the following:
 - Maven 3.9.16
 - MySQL 8.4
 - Visual Studio Code
+- Any other tools required in backend development (task-management-system)
 
 Some optional tools for testing:
 - MySQL Workbench to observe database
 
 The backend server and Android application must both be running for the application to retrieve and save data.
 
+## Configuration
+
+### Backend configuration
+
+The Java server listens on port `8080` and connects to the MySQL database.
+The gRPC server listens on port `9090` and connects to the MySQL database.
+
+Please set your database credentials in the environment variables ($env:DB_USERNAME, $env:DB_URL, $env:DB_PASSWORD)
+
+Example:
+```text
+$env:DB_USERNAME="YOUR_USERNAME"
+$env:DB_URL="YOUR_URL"
+$env:DB_PASSWORD="YOUR_PASSWORD"
+```
+
+
+### Android configuration
+
+The Android application uses the following base URL during local emulator development:
+
+http://10.0.2.2:8080
+
+The address `10.0.2.2` allows the Android emulator to reach the backend running on the host computer.
+
+The application requires Internet permission and currently permits HTTP traffic for local development. Production deployments should use HTTPS and an appropriate network security configuration.
+
 ## Starting the Application
 
-Before starting the Android application, start the backend (task-management-system) first.
+Before starting the Android application, start the backend servers (developed in task-management-system) first.
 
-### Start the Java backend server (Using Visual Studio Code)
+### Start the Java backend server (Visual Studio Code)
 1. Open task-management-system on Visual Studio Code
 2. Create new terminal
-3. In the terminal enter credentials into environment variables (run one line at a time):
+3. In the terminal, set your credentials into environment variables (run one line at a time):
+
+Example:
 ```text
 $env:DB_USERNAME="YOUR_USERNAME"
 $env:DB_URL="YOUR_URL"
@@ -100,6 +114,12 @@ mvn exec:java "-Dexec.mainClass=com.comp713.Database.DatabaseSetup"
 ```text
 mvn exec:java "-Dexec.mainClass=com.comp713.Server"
 ```
+
+You will see:
+```text
+Server started on http://localhost:8080
+```
+When the server starts successfully.
 
 ### Launch the Android Application (Android Studio)
 1. Open TaskManagementApp on Android Studio

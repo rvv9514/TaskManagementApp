@@ -1,5 +1,6 @@
 package com.example.taskmanagementapp
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -96,6 +98,8 @@ fun TaskScreen(loadFromServer: Boolean = true) {
 
     val scope = rememberCoroutineScope()
 
+    val context = LocalContext.current
+
     LaunchedEffect(loadFromServer) {
         if (loadFromServer) {
             isLoading = true
@@ -133,6 +137,19 @@ fun TaskScreen(loadFromServer: Boolean = true) {
                 fontSize = 14.sp,
                 style = MaterialTheme.typography.headlineMedium
             )
+
+            Button(
+                onClick = {
+                    context.startActivity(
+                        Intent(context, AddUserActivity::class.java)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Add User")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Spacer(modifier = Modifier.height(24.dp))
 
