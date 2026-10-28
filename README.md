@@ -74,7 +74,6 @@ $env:DB_URL="YOUR_URL"
 $env:DB_PASSWORD="YOUR_PASSWORD"
 ```
 
-
 ### Android configuration
 
 The Android application uses the following base URL during local emulator development:
@@ -89,7 +88,8 @@ The application requires Internet permission and currently permits HTTP traffic 
 
 Before starting the Android application, start the backend servers (developed in task-management-system) first.
 
-### Start the Java backend server (Visual Studio Code)
+### Start the Java backend server
+#### Starting the HTTP server (Visual Studio Code)
 1. Open task-management-system on Visual Studio Code
 2. Create new terminal
 3. In the terminal, set your credentials into environment variables (run one line at a time):
@@ -121,11 +121,28 @@ Server started on http://localhost:8080
 ```
 When the server starts successfully.
 
+#### Start the gRPC server (Visual Studio Code)
+
+1. Create another new terminal in Visual Studio Code
+2. Set your credentials into environment variables as you did (in starting HTTP server step 3)
+3. Clean the project by running:
+```text
+mvn clean package
+```
+4. Compile the project by running:
+```text
+mvn compile
+```
+5. Start running the server by running:
+```text
+mvn exec:java "-Dexec.mainClass=com.comp713.TaskEventGrpcServer"
+```
+
 ### Launch the Android Application (Android Studio)
 1. Open TaskManagementApp on Android Studio
 2. Run the project
 
-### Address and Ports Used
+## Address and Ports Used
 Here are the addresses and ports used by components of the app
 
 | Component                   | Address or port                              |
@@ -160,7 +177,9 @@ The backend exposes the following endpoints:
 | Username                   | John           |
 | Email                      | John@email.com |
 
-This is a sample application data, not a login account. The current application does not implement authentication.
+You can create new users by clicking the 'Add User' button which guides you to the 'create user' screen
+
+Note: This is a sample application data, not a login account. The current application does not implement authentication.
 
 ### Sample task
 
@@ -171,7 +190,7 @@ This is a sample application data, not a login account. The current application 
 | User ID (foreign key) | 1                                 |
 | Initial status        | TODO (default)                    |
 
-Use the form within the app to create new tasks
+Use the form within the app to create new tasks, update task statuses, and delete tasks.
 
 ## Testing
 
@@ -196,12 +215,20 @@ For users table:
 SELECT * FROM users;
 ```
 
+For gRPC events table:
+```text
+SELECT *
+FROM task_events
+ORDER BY id DESC
+LIMIT 10;
+```
+
 ### 2. Testing the Android application
 
-This application should capable with the following:
+This application should be capable with the following:
 - The application opens successfully
 - Existing tasks are loaded from the backend
-- The user dropdown displays available users
+- The user dropdown displays created/existing users
 - A new task can be created
 - The new task appears in the task list
 - A task status can be changed to `TODO`, `IN_PROGRESS`, or `DONE`
@@ -210,15 +237,16 @@ This application should capable with the following:
 
 ## Application Workflow
 
-1. Start the Java backend server (task-management-system).
+1. Java backend server (task-management-system) gets started.
 2. Ensure the MySQL database is accessible.
 3. Launch the Android application.
-4. The app requests the task list and available users from the backend.
+4. The app requests the task list and available users from the HTTP server.
 5. Select an user and enter the task title and description.
 6. Submit the form to create a task.
-7. Select a task's status to change it.
-8. The app sends the update to the backend.
-9. The backend updates the database, and the app reloads the task list to display the latest data.
+7. Select a status from the dropdown menu to change task status.
+8. The app sends the update to the HTTP server.
+9. The HTTP server updates the database, and the app reloads the task list to display the latest data.
+10. When the database is updated successfully, the gRPC server logs the  task status change event.
 
 ## Known Limitations
 
@@ -229,5 +257,5 @@ This application should capable with the following:
 - Error handling and offline support are limited.
 - The backend's JSON parsing implementation may have limitations when handling unexpected input.
 - API requests and database access depend on the availability and configuration of the Amazon RDS instance. If the database is unavailable or the backend cannot connect to it, task and user data may not load or save successfully.
-- 
-- 
+- Users cannot be deleted using the client
+- The gRPC server logs duplicate event logs
